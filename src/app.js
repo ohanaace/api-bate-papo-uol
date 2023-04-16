@@ -56,7 +56,7 @@ app.get("/participants", async (req, res) => {
 })
 
 app.post("/messages", async (req, res) => { 
-    const {User} = req.headers
+    const {user} = req.headers
     const {to, text, type} = req.body
 
     const messageSchema = joi.object({
@@ -65,16 +65,26 @@ app.post("/messages", async (req, res) => {
         type: joi.string().valid("message", "private_message").required()
 
     })
+    const userHeaderSchema = joi.object({
+        from: joi.string().required()
+    })
+    console.log(req)
+    const header = {from: user}
+    const headerValidation = userHeaderSchema.validate(header)
+    if(headerValidation.error){
+        const error = headerValidation.error.details.map(err => err.message)
+        return res.status(422).send(error)
+    }
     const message = {to, text, type}
     const validation = messageSchema.validate(message, {abortEarly: false})
     if(validation.error){
         const error = validation.error.details.map(errors => errors.message)
         return res.status(422).send(error)
     }
-    const authUser = await db.collection("participants").findOne({name: User})
+    const authUser = await db.collection("participants").findOne({name: user})
     try {
         if(!authUser) return res.status(422).send("Você não está logado! Faça login e tente novamente.")
-        await db.collection("messages").insertOne({from: User,...message, time: `${hour}:${minute}:${second}`})
+        await db.collection("messages").insertOne({from: user,...message, time: `${hour}:${minute}:${second}`})
         res.sendStatus(201)
     } catch (error) {
         res.status(500).send(error.message)
