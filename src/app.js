@@ -28,7 +28,7 @@ app.post("/participants", async (req, res) => {
         name: joi.string().required()
     })
     const newParticipant = {name}
-    const validation = participantSchema.validate(newParticipant, { abortEarly: false })
+    const validation = participantSchema.validate(newParticipant)
     if (validation.error) {
         const errMessages = validation.error.details.map((error) => error.message)
         return res.status(422).send(errMessages)
@@ -37,7 +37,7 @@ app.post("/participants", async (req, res) => {
         const loggedUser = await db.collection("participants").findOne({ name: name })
         if (loggedUser) return res.sendStatus(409)
         await db.collection("participants").insertOne({ name, lastStatus: Date.now() })
-        await db.collection("messages").insertOne({ from: `${name}`, to: 'Todos', text: 'entra na sala...', type: 'status', time: `${hour}:${minute}:${second}'` }) //revisitar a dayjs pra configurar a hora
+        await db.collection("messages").insertOne({ from: `${name}`, to: 'Todos', text: 'entra na sala...', type: 'status', time: `${hour}:${minute}:${second}` }) //revisitar a dayjs pra configurar a hora
         res.sendStatus(201)
     }
     catch {
@@ -55,7 +55,31 @@ app.get("/participants", async (req, res) => {
     
 })
 
-app.post("/messages", (req, res) => { })
+app.post("/messages", async (req, res) => { 
+    const {User} = req.headers
+    const {to, text, type} = req.body
+
+    const messageSchema = joi.object({
+        to: joi.string().required(),
+        text: joi.string().required(),
+        type: joi.string().valid("message", "private_message").required()
+
+    })
+    const message = {to, text, type}
+    const validation = messageSchema.validate(message, {abortEarly: false})
+    if(validation.error){
+        const error = validation.error.details.map(errors => errors.message)
+        return res.status(422).send(error)
+    }
+    const authUser = await db.collection("participants").findOne({name: User})
+    try {
+        if(!authUser) return res.status(422).send("Você não está logado! Faça login e tente novamente.")
+        await db.collection("messages").insertOne({from: User,...message, time: `${hour}:${minute}:${second}`})
+        res.sendStatus(201)
+    } catch (error) {
+        res.status(500).send(error.message)
+    }
+})
 app.get("/messages", (req, res) => { })
 
 app.post("/status", (req, res) => { })
