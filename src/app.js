@@ -68,7 +68,6 @@ app.post("/messages", async (req, res) => {
     const userHeaderSchema = joi.object({
         from: joi.string().required()
     })
-    console.log(req)
     const header = {from: user}
     const headerValidation = userHeaderSchema.validate(header)
     if(headerValidation.error){
@@ -90,7 +89,19 @@ app.post("/messages", async (req, res) => {
         res.status(500).send(error.message)
     }
 })
-app.get("/messages", (req, res) => { })
+app.get("/messages", async (req, res) => {
+    const {user} = req.headers
+    const {limit} = req.query
+console.log(Number(limit))
+    const userMessages = await db.collection("messages").find({$or: [{to: "Todos"}, {to: `${user}`}, {from: `${user}`}]}).toArray()
+    try {
+        if(Number(limit) < 0 || Number(limit) === 0 || isNaN(limit)) return res.sendStatus(422)
+        if(Number(limit)) return res.send(userMessages.slice(-limit))
+        res.send(userMessages)
+    } catch (error) {
+        res.status(500).send(error.message)
+    }
+})
 
 app.post("/status", (req, res) => { })
 
