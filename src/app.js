@@ -18,16 +18,14 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
-const hour = dayjs().hour()
-const minute = dayjs().minute()
-const second = dayjs().second()
+const time = dayjs().format("HH:mm:ss")
 
 app.post("/participants", async (req, res) => {
     const { name } = req.body
     const participantSchema = joi.object({
         name: joi.string().required()
     })
-    const newParticipant = {name}
+    const newParticipant = { name }
     const validation = participantSchema.validate(newParticipant)
     if (validation.error) {
         const errMessages = validation.error.details.map((error) => error.message)
@@ -37,7 +35,7 @@ app.post("/participants", async (req, res) => {
         const loggedUser = await db.collection("participants").findOne({ name: name })
         if (loggedUser) return res.sendStatus(409)
         await db.collection("participants").insertOne({ name, lastStatus: Date.now() })
-        await db.collection("messages").insertOne({ from: `${name}`, to: 'Todos', text: 'entra na sala...', type: 'status', time: `${hour}:${minute}:${second}` }) //revisitar a dayjs pra configurar a hora
+        await db.collection("messages").insertOne({ from: `${name}`, to: 'Todos', text: 'entra na sala...', type: 'status', time })
         res.sendStatus(201)
     }
     catch {
@@ -45,19 +43,17 @@ app.post("/participants", async (req, res) => {
     }
 })
 app.get("/participants", async (req, res) => {
+    const participants = await db.collection("participants").find().toArray()
     try {
-       const participants = await db.collection("participants").find().toArray()
-       res.send(participants)    
+        res.send(participants)
     } catch (error) {
         res.status(500).send(error.message)
     }
-    
-    
 })
 
-app.post("/messages", async (req, res) => { 
-    const {user} = req.headers
-    const {to, text, type} = req.body
+app.post("/messages", async (req, res) => {
+    const { user } = req.headers
+    const { to, text, type } = req.body
 
     const messageSchema = joi.object({
         to: joi.string().required(),
@@ -68,56 +64,54 @@ app.post("/messages", async (req, res) => {
     const userHeaderSchema = joi.object({
         from: joi.string().required()
     })
-    const header = {from: user}
+    const header = { from: user }
     const headerValidation = userHeaderSchema.validate(header)
-    if(headerValidation.error){
+    if (headerValidation.error) {
         const error = headerValidation.error.details.map(err => err.message)
         return res.status(422).send(error)
     }
-    const message = {to, text, type}
-    const validation = messageSchema.validate(message, {abortEarly: false})
-    if(validation.error){
+    const message = { to, text, type }
+    const validation = messageSchema.validate(message, { abortEarly: false })
+    if (validation.error) {
         const error = validation.error.details.map(errors => errors.message)
         return res.status(422).send(error)
     }
-    const authUser = await db.collection("participants").findOne({name: user})
+    const authUser = await db.collection("participants").findOne({ name: user })
     try {
-        if(!authUser) return res.status(422).send("Você não está logado! Faça login e tente novamente.")
-        await db.collection("messages").insertOne({from: user,...message, time: `${hour}:${minute}:${second}`})
+        if (!authUser) return res.status(422).send("Você não está logado! Faça login e tente novamente.")
+        await db.collection("messages").insertOne({ from: user, ...message, time })
         res.sendStatus(201)
     } catch (error) {
         res.status(500).send(error.message)
     }
 })
 app.get("/messages", async (req, res) => {
-    const {user} = req.headers
-    const {limit} = req.query
-console.log(Number(limit))
-    const userMessages = await db.collection("messages").find({$or: [{to: "Todos"}, {to: `${user}`}, {from: `${user}`}]}).toArray()
+    const { user } = req.headers
+    const { limit } = req.query
+    const userMessages = await db.collection("messages").find({ $or: [{ to: "Todos" }, { to: `${user}` }, { from: `${user}` }] }).toArray()
     try {
-        if(Number(limit) < 0 || Number(limit) === 0 || isNaN(limit)) return res.sendStatus(422)
-        if(Number(limit)) return res.send(userMessages.slice(-limit))
-        res.send(userMessages)
+        if(limit === undefined) return res.send(userMessages)
+        if (Number(limit) < 0 || Number(limit) === 0 || isNaN(limit)) return res.sendStatus(422)
+        if (Number(limit)) return res.send(userMessages.slice(-limit))
     } catch (error) {
         res.status(500).send(error.message)
     }
 })
 
 app.post("/status", async (req, res) => {
-    const {user} = req.headers
+    const { user } = req.headers
 
-    if(!user) return res.sendStatus(404)
-    const activeUser = await db.collection("participants").findOne({name: user})
+    if (!user) return res.sendStatus(404)
+    const activeUser = await db.collection("participants").findOne({ name: user })
     try {
-        if(!activeUser) return res.sendStatus(404)
+        if (!activeUser) return res.sendStatus(404)
         const newStatus = Date.now()
-        await db.collection("participants").updateOne({name: user}, {$set: {lastStatus: newStatus}})
+        await db.collection("participants").updateOne({ name: user }, { $set: { lastStatus: newStatus } })
         res.sendStatus(200)
-        
     } catch (error) {
-        res.status(500).send(error.messaage)
+        res.status(500).send(error.message)
     }
- })
+})
 
 
 const PORT = 5000
