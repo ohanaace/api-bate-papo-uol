@@ -1,6 +1,6 @@
 import express from "express"
 import cors from "cors"
-import { MongoClient } from "mongodb"
+import { MongoClient, ObjectId } from "mongodb"
 import dotenv from "dotenv"
 import dayjs from "dayjs"
 import joi from "joi"
@@ -18,11 +18,10 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
-const time = dayjs().format("HH:mm:ss")
-const limitTimeout = Date.now() - 10000
-
-setInterval(async () => {
-const inactiveParticipants = await db.collection("participants").find( { lastStatus: { $lt: limitTimeout } } ).toArray()
+/* setInterval(async () => {
+    const limitTimeout = Date.now() - 10000
+    const time = dayjs().format("HH:mm:ss")
+    const inactiveParticipants = await db.collection("participants").find( { lastStatus: { $lt: limitTimeout } } ).toArray()
 try {
     if(inactiveParticipants){
         const inactiveIDs = inactiveParticipants.map((inactive) => inactive._id)
@@ -34,9 +33,10 @@ try {
 }
 
 }, 15000)
-
+ */
 app.post("/participants", async (req, res) => {
     const { name } = req.body
+    const time = dayjs().format("HH:mm:ss")
     const participantSchema = joi.object({
         name: joi.string().required()
     })
@@ -69,7 +69,7 @@ app.get("/participants", async (req, res) => {
 app.post("/messages", async (req, res) => {
     const { user } = req.headers
     const { to, text, type } = req.body
-
+    const time = dayjs().format("HH:mm:ss")
     const messageSchema = joi.object({
         to: joi.string().required(),
         text: joi.string().required(),
@@ -128,6 +128,22 @@ app.post("/status", async (req, res) => {
     }
 })
 
+app.delete("/messages/:ID_DA_MENSAGEM", async (req, res) => {
+    const {user} = req.headers
+    const {id} = req.params
+    const deletedMessage = await db.collection("messages").findOne({_id: new ObjectId(id)})
+    const messages = await db.collection("messages").find().toArray()
+    console.log(messages)
+    try {
+        console.log(deletedMessage)
+        if(!deletedMessage) return res.sendStatus(404)
+        if(deletedMessage.from !== user) return res.sendStatus(401)  
+        await db.collection("messages").deleteOne(deletedMessage)
+        res.sendStatus(200)      
+    } catch (error) {
+        res.status(500).send(error.message)
+    }
+})
 
 const PORT = 5000
 app.listen(PORT)
