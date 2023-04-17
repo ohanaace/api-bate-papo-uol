@@ -146,5 +146,50 @@ app.delete("/messages/:ID_DA_MENSAGEM", async (req, res) => {
     }
 })
 
+app.put("/messages/:ID_DA_MENSAGEM", async (req, res) => {
+    const {user} = req.headers
+    const {ID_DA_MENSAGEM: id} = req.params
+    const {to, type, text} = req.body
+    const time = dayjs().format("HH:mm:ss")
+
+    const updateSchema = joi.object({
+        to: joi.string(),
+        text: joi.string(),
+        type: joi.string().valid("message", "private_message")
+    })
+    const message = {}
+    if(to) message.to = to
+    if(text) message.text = text
+    if(type) message.type = type
+    
+    const validation = updateSchema.validate(message, {abortEarly: false})
+    if(validation.error){
+        const error = validation.error.details.map(err => err.message)
+        return res.status(422).send(error)
+    }
+    const headerSchema = joi.object({from: joi.string().required()})
+    const updateUser = {from: user}
+    const userValidation = headerSchema.validate(updateUser)
+    if(userValidation.error){
+        const error = userValidation.error.details.map(err => err.message)
+        return res.status(422).send(error)
+    }
+
+    const updatedMessage = {...message, ...updateUser, time}
+
+    const currentMessage = await db.collection("messages").findOne({_id: new ObjectId(id)})
+    const loggedUser = await db.collection("participants").findOne({name: user})
+    try {
+        if(!loggedUser) return res.sendStatus(422)
+        if(!currentMessage) return res.sendStatus(404)
+        if(currentMessage.from !== user) return res.sendStatus(401)        
+        await db.collection("messages").updateOne({_id: new ObjectId(id)}, {$set: updatedMessage})
+        res.sendStatus(200)
+    } catch (error) {
+        res.status(500).send(error.message)
+    }
+
+
+})
 const PORT = 5000
 app.listen(PORT)
