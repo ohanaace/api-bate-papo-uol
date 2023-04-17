@@ -18,7 +18,7 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
-/* setInterval(async () => {
+setInterval(async () => {
     const limitTimeout = Date.now() - 10000
     const time = dayjs().format("HH:mm:ss")
     const inactiveParticipants = await db.collection("participants").find( { lastStatus: { $lt: limitTimeout } } ).toArray()
@@ -33,7 +33,7 @@ try {
 }
 
 }, 15000)
- */
+
 app.post("/participants", async (req, res) => {
     const { name } = req.body
     const time = dayjs().format("HH:mm:ss")
