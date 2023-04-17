@@ -103,7 +103,21 @@ console.log(Number(limit))
     }
 })
 
-app.post("/status", (req, res) => { })
+app.post("/status", async (req, res) => {
+    const {user} = req.headers
+
+    if(!user) return res.sendStatus(404)
+    const activeUser = await db.collection("participants").findOne({name: user})
+    try {
+        if(!activeUser) return res.sendStatus(404)
+        const newStatus = Date.now()
+        await db.collection("participants").updateOne({name: user}, {$set: {lastStatus: newStatus}})
+        res.sendStatus(200)
+        
+    } catch (error) {
+        res.status(500).send(error.messaage)
+    }
+ })
 
 
 const PORT = 5000
