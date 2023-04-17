@@ -19,6 +19,21 @@ app.use(cors())
 app.use(express.json())
 
 const time = dayjs().format("HH:mm:ss")
+const limitTimeout = Date.now() - 10000
+
+setInterval(async () => {
+const inactiveParticipants = await db.collection("participants").find( { lastStatus: { $lt: limitTimeout } } ).toArray()
+try {
+    if(inactiveParticipants){
+        const inactiveIDs = inactiveParticipants.map((inactive) => inactive._id)
+        inactiveParticipants.forEach((inactive => db.collection("messages").insertOne({ from: inactive.name, to: 'Todos', text: 'sai da sala...', type: 'status', time})))
+        await db.collection("participants").deleteMany({_id: {$in: inactiveIDs}})
+    }
+} catch (error) {
+  console.log(error.message)
+}
+
+}, 15000)
 
 app.post("/participants", async (req, res) => {
     const { name } = req.body
