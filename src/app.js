@@ -130,7 +130,8 @@ app.post("/status", async (req, res) => {
 
 app.delete("/messages/:ID_DA_MENSAGEM", async (req, res) => {
     const {user} = req.headers
-    const {id} = req.params
+    const {ID_DA_MENSAGEM: id} = req.params
+    console.log(id)
     const deletedMessage = await db.collection("messages").findOne({_id: new ObjectId(id)})
     const messages = await db.collection("messages").find().toArray()
     console.log(messages)
